@@ -1,5 +1,5 @@
 ---
-title: "Predicting the Masses of Biggest Cluster Galaxies from their Optical Brightnesses"
+title: "Predicting the Masses of Biggest Cluster Galaxies from their Optical Brightnesses and Shape"
 author: "Bin, Megha, Athena"
 date: "`r Sys.Date()`"
 output:
@@ -37,6 +37,7 @@ library(xgboost)
 library(FNN)
 library(corrplot)
 library(leaps)
+library(olsrr)
 ```
 
 ```{r, include = F}
@@ -114,9 +115,6 @@ the log-base-10 mass of BCGs (logMass).
 
 # EDA 
 
-We performed log transformations on predictor variables related to CHI2NU and RE, which we found yielded better predictions and reduced skewness. 
-We also found an overall pattern in the data where many of the predictors, when grouped by a specific property (e.g. MAG) across different models 
-and wavelengths were all heavily linearly correlated. This suggests that many of the predictor variables may contain largely redundant information.
 
 ```{r, include = F}
 # transformations
@@ -137,6 +135,29 @@ df <- data.frame(df, log.chi, log.re)
 predictors <- dplyr::select(df, -response)
 response <- dplyr::select(df, response)
 ```
+We performed log transformations on predictor variables related to CHI2NU and RE, which we found yielded better predictions and reduced skewness. 
+We also found an overall pattern in the data where many of the predictors, when grouped by a specific property (e.g. MAG) across different models 
+and wavelengths were all heavily linearly correlated. This suggests that many of the predictor variables may contain largely redundant information.
+
+```{r}
+pr.out = prcomp(predictors, scale=TRUE)
+
+pr.var = data.frame(varExp = pr.out$sdev^2)
+pve= pr.var/sum(pr.var$varExp)
+pr.var = pr.var %>% mutate(pve = varExp / sum(varExp))
+
+pve.df <- data.frame("PC" = 1:66, "pve" = pr.var$pve)
+
+ggplot(pve.df, mapping=aes(x=PC, y=pve)) +
+  geom_point() +
+  theme(text = element_text(size=7),
+        axis.text.x = element_text(angle=90)) +
+  xlab("Principal Component ") +
+  ylab("Proportion of Variance Explained")
+```
+From PCA, we found that the dimensions of our data can be reduced from 66 to around 35 or less, and still effectively explain over 95% of the 
+data’s variance.
+
 # Regression Analysis
 
 ```{r}
@@ -183,5 +204,35 @@ plot(lm.resid_vif[0:350], ylab = "Residuals", xlab= "Mass") + abline(0, 0)
 #MSE for linear regression
 lm.mass.predict1 = predict(lm.mass.vif, newdata = pred.vif.test)
 MSE.lin.vif = mean((resp.vif.test - lm.mass.predict1) ^ 2,na.rm = TRUE)
+MSE.lin.vif
 ```
 
+```{r}
+#LASSO REGRESSION - accounting for collinear variables
+#Data Frames as Matrices
+model.train.vif = model.matrix(resp.vif.train ~ ., data=pred.vif.train)[,-1]
+model.test.vif  = model.matrix(resp.vif.test ~ .,  data=pred.vif.test)[,-1]
+
+#Lasso regression on the training data
+lasso.mod.train.vif = glmnet(model.train.vif,resp.vif.train,alpha=1)
+
+#determining the best value for lambda
+set.seed(101)
+cv.out.vif = cv.glmnet(model.train.vif,resp.vif.train,alpha=1)
+bestlam.vif=cv.out.vif$lambda.min
+
+#compute test-set MSE
+lasso.pred.vif = predict(lasso.mod.train.vif,s=bestlam.vif,newx=model.test.vif)
+MSE.lasso.vif = mean((lasso.pred.vif-resp.vif.test)^2)
+MSE.lasso.vif
+```
+
+```{r}
+#STEPWISE SELECTION (BACKWARD) - updated based on collinear variables
+backward.selection.vif <- ols_step_backward_p(lm.mass.vif)
+backward.selection.vif
+
+#Backward MSE calculation
+backward.selection.pred.vif = predict(backward.selection.vif$model,newdata=pred.vif.test)
+MSE_backward_update= mean((resp.test - backward.selection.pred.vif) ^ 2,na.rm = TRUE)
+```
