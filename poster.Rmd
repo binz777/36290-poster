@@ -225,6 +225,7 @@ bestlam.vif=cv.out.vif$lambda.min
 lasso.pred.vif = predict(lasso.mod.train.vif,s=bestlam.vif,newx=model.test.vif)
 MSE.lasso.vif = mean((lasso.pred.vif-resp.vif.test)^2)
 MSE.lasso.vif
+plot(lasso.mod.train.vif, xvar="lambda") + abline(v=log(bestlam.vif))
 ```
 
 ```{r}
