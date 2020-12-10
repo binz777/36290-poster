@@ -12,7 +12,9 @@ output:
 ---
 
 # Introduction 
-Biggest Cluster Galaxies (BCGs) are large collections of galaxies that are studied greatly in astrophysics. More massive objects distort spacetime more and will have a larger effect on their environments. In this project, our goal is to determine the relationship between brightness and shapes of BCGs and their mass. Finding a direct relationship would allow us to skip intensive computations that have previously been used to predict mass.
+Biggest Cluster Galaxies (BCGs) are large collections of galaxies that are studied greatly in astrophysics. More massive objects distort spacetime 
+more and will have a larger effect on their environments. In this project, our goal is to determine the relationship between brightness and shapes of 
+BCGs and their mass. Finding a direct relationship would allow us to skip intensive computations that have previously been used to predict mass.
 
 
 # Data
@@ -106,11 +108,15 @@ i_modSX_C2_RE	=	GAL_sdss_i_modSX_C2_RE	,
 i_modSX_C2_AR	=	GAL_sdss_i_modSX_C2_AR	,
 i_modSX_C2_PA	=	GAL_sdss_i_modSX_C2_PA	)
 ```
-We will analyze data of 390 BCGs from Spectroscopic Identification of eROSITA Sources (SPIDERS), which contains 66 predictor variables including measurements of brightness and shape in different bands (g,r,i) and models (S, V, SX).  The response variable that we are interested in predicting is the log-base-10 mass of BCGs (logMass).
+We will analyze data of 390 BCGs from Spectroscopic Identification of eROSITA Sources (SPIDERS), which contains 66 predictor variables including 
+measurements of brightness and shape in different bands (g,r,i) and models (S, V, SX).  The response variable that we are interested in predicting is 
+the log-base-10 mass of BCGs (logMass).
 
 # EDA 
 
-We performed log transformations on predictor variables related to CHI2NU and RE, which we found yielded better predictions and reduced skewness. We also found an overall pattern in the data where many of the predictors, when grouped by a specific property (e.g. MAG) across different models and wavelengths were all heavily linearly correlated. This suggests that many of the predictor variables may contain largely redundant information.
+We performed log transformations on predictor variables related to CHI2NU and RE, which we found yielded better predictions and reduced skewness. 
+We also found an overall pattern in the data where many of the predictors, when grouped by a specific property (e.g. MAG) across different models 
+and wavelengths were all heavily linearly correlated. This suggests that many of the predictor variables may contain largely redundant information.
 
 ```{r, include = F}
 # transformations
