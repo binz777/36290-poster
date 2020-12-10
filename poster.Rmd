@@ -234,5 +234,49 @@ backward.selection.vif
 
 #Backward MSE calculation
 backward.selection.pred.vif = predict(backward.selection.vif$model,newdata=pred.vif.test)
-MSE_backward_update= mean((resp.test - backward.selection.pred.vif) ^ 2,na.rm = TRUE)
+MSE_backward_update= mean((resp.vif.test - backward.selection.pred.vif) ^ 2,na.rm = TRUE)
 ```
+
+# Machine Learning Models
+```{r}
+#RANDOM FOREST
+rf.out = randomForest(resp.train~.,data=pred.train, importance=TRUE)
+forest.pred = predict(rf.out,newdata=pred.test,type="response")
+MSE.forest = mean((resp.test - forest.pred) ^ 2,na.rm = TRUE)
+
+varImp <- data.frame(rf.out$importance)
+varImp <- varImp %>% mutate(predictors = row.names(.)) %>% arrange(desc(X.IncMSE))
+varImp[1:5, c(3, 1, 2)]
+```
+
+```{r}
+#kNN
+#scale the train/test sets 
+pred.train.scaled <- scale(pred.train)
+pred.test.scaled <- scale(pred.test)
+#determine optimal value of k and MSE
+k.max = 50
+mse.k <- rep(NA,k.max) 
+for (i in 1:k.max){
+  knnreg = knn.reg(pred.train.scaled, y=resp.train, k = i, algorithm="brute")
+  knnmse = suppressWarnings(mean((resp.train - knnreg$pred)^2))
+  mse.k[i] = knnmse
+}
+optimal.mse = which.min(mse.k)
+
+#compare linear regression MSE to KKN MSE 
+MSE.KNN = mse.k[optimal.mse]
+```
+
+# Final Analysis and Conclusion
+
+```{r}
+new.df <- data.frame(lasso.pred.vif, resp.vif.test)
+ggplot(data = new.df, aes(x=resp.vif.test, y=lasso.pred.update)) + geom_point()+ geom_abline() + ylab("Predicted log(Mass)") + xlab("Observed log(Mass)") + xlim(10, 12.5) + ylim(10,12.5)
+```
+Overall, we identified a linear relationship between the brightness and shape measurements of BCGs and its log(Mass). However, the relationship 
+was very weak and even our best model (lasso regression) did not effectively explain the data. Further analysis with more flexible nonlinear models 
+performed at around the same level or worse in terms of prediction ability. Our best ML model, random forest, determined that redshift is by far the 
+most important variables in predicting BCG mass. For the future, it may be beneficial to expand the dataset to include more observations and other 
+predictor variables to identify if another property of BCG can even more effectively explain BCG mass.
+
