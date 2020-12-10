@@ -1,0 +1,123 @@
+---
+title: "Predicting the Masses of Biggest Cluster Galaxies from their Optical Brightnesses"
+author: "Bin, Megha, Athena"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list=ls())
+file.path = "https://raw.githubusercontent.com/pefreeman/36-290/master/PROJECT_DATASETS/SPIDERS_MASS/spiders_bcg_mass.Rdata"
+load(url(file.path))
+rm(file.path)
+objects()
+
+library(tidyverse)
+library(MASS)
+library(car)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(xgboost)
+library(FNN)
+library(corrplot)
+library(leaps)
+```
+
+```{r, include = F}
+# renaming variables
+
+dff <- data.frame(predictors, response)
+
+dff <- rename(dff, g_modS_CHI2NU = GAL_sdss_g_modS_CHI2NU	,
+g_modS_C1_MAG	=	GAL_sdss_g_modS_C1_MAG	,
+g_modS_C1_RE	=	GAL_sdss_g_modS_C1_RE	,
+g_modS_C1_N	=	GAL_sdss_g_modS_C1_N	,
+g_modS_C1_AR	=	GAL_sdss_g_modS_C1_AR	,
+g_modS_C1_PA	=	GAL_sdss_g_modS_C1_PA	,
+r_modS_CHI2NU	=	GAL_sdss_r_modS_CHI2NU	,
+r_modS_C1_MAG	=	GAL_sdss_r_modS_C1_MAG	,
+r_modS_C1_RE	=	GAL_sdss_r_modS_C1_RE	,
+r_modS_C1_N	=	GAL_sdss_r_modS_C1_N	,
+r_modS_C1_AR	=	GAL_sdss_r_modS_C1_AR	,
+r_modS_C1_PA	=	GAL_sdss_r_modS_C1_PA	,
+i_modS_CHI2NU	=	GAL_sdss_i_modS_CHI2NU	,
+i_modS_C1_MAG	=	GAL_sdss_i_modS_C1_MAG	,
+i_modS_C1_RE	=	GAL_sdss_i_modS_C1_RE	,
+i_modS_C1_N	=	GAL_sdss_i_modS_C1_N	,
+i_modS_C1_AR	=	GAL_sdss_i_modS_C1_AR	,
+i_modS_C1_PA	=	GAL_sdss_i_modS_C1_PA	,
+g_modV_CHI2NU	=	GAL_sdss_g_modV_CHI2NU	,
+g_modV_C1_MAG	=	GAL_sdss_g_modV_C1_MAG	,
+g_modV_C1_RE	=	GAL_sdss_g_modV_C1_RE	,
+g_modV_C1_AR	=	GAL_sdss_g_modV_C1_AR	,
+g_modV_C1_PA	=	GAL_sdss_g_modV_C1_PA	,
+r_modV_CHI2NU	=	GAL_sdss_r_modV_CHI2NU	,
+r_modV_C1_MAG	=	GAL_sdss_r_modV_C1_MAG	,
+r_modV_C1_RE	=	GAL_sdss_r_modV_C1_RE	,
+r_modV_C1_AR	=	GAL_sdss_r_modV_C1_AR	,
+r_modV_C1_PA	=	GAL_sdss_r_modV_C1_PA	,
+i_modV_CHI2NU	=	GAL_sdss_i_modV_CHI2NU	,
+i_modV_C1_MAG	=	GAL_sdss_i_modV_C1_MAG	,
+i_modV_C1_RE	=	GAL_sdss_i_modV_C1_RE	,
+i_modV_C1_AR	=	GAL_sdss_i_modV_C1_AR	,
+i_modV_C1_PA	=	GAL_sdss_i_modV_C1_PA	,
+g_modSX_CHI2NU	=	GAL_sdss_g_modSX_CHI2NU	,
+g_modSX_C1_MAG	=	GAL_sdss_g_modSX_C1_MAG	,
+g_modSX_C1_RE	=	GAL_sdss_g_modSX_C1_RE	,
+g_modSX_C1_N	=	GAL_sdss_g_modSX_C1_N	,
+g_modSX_C1_AR	=	GAL_sdss_g_modSX_C1_AR	,
+g_modSX_C1_PA	=	GAL_sdss_g_modSX_C1_PA	,
+g_modSX_C2_MAG	=	GAL_sdss_g_modSX_C2_MAG	,
+g_modSX_C2_RE	=	GAL_sdss_g_modSX_C2_RE	,
+g_modSX_C2_AR	=	GAL_sdss_g_modSX_C2_AR	,
+g_modSX_C2_PA	=	GAL_sdss_g_modSX_C2_PA	,
+r_modSX_CHI2NU	=	GAL_sdss_r_modSX_CHI2NU	,
+r_modSX_C1_MAG	=	GAL_sdss_r_modSX_C1_MAG	,
+r_modSX_C1_RE	=	GAL_sdss_r_modSX_C1_RE	,
+r_modSX_C1_N	=	GAL_sdss_r_modSX_C1_N	,
+r_modSX_C1_AR	=	GAL_sdss_r_modSX_C1_AR	,
+r_modSX_C1_PA	=	GAL_sdss_r_modSX_C1_PA	,
+r_modSX_C2_MAG	=	GAL_sdss_r_modSX_C2_MAG	,
+r_modSX_C2_RE	=	GAL_sdss_r_modSX_C2_RE	,
+r_modSX_C2_AR	=	GAL_sdss_r_modSX_C2_AR	,
+r_modSX_C2_PA	=	GAL_sdss_r_modSX_C2_PA	,
+i_modSX_CHI2NU	=	GAL_sdss_i_modSX_CHI2NU	,
+i_modSX_C1_MAG	=	GAL_sdss_i_modSX_C1_MAG	,
+i_modSX_C1_RE	=	GAL_sdss_i_modSX_C1_RE	,
+i_modSX_C1_N	=	GAL_sdss_i_modSX_C1_N	,
+i_modSX_C1_AR	=	GAL_sdss_i_modSX_C1_AR	,
+i_modSX_C1_PA	=	GAL_sdss_i_modSX_C1_PA	,
+i_modSX_C2_MAG	=	GAL_sdss_i_modSX_C2_MAG	,
+i_modSX_C2_RE	=	GAL_sdss_i_modSX_C2_RE	,
+i_modSX_C2_AR	=	GAL_sdss_i_modSX_C2_AR	,
+i_modSX_C2_PA	=	GAL_sdss_i_modSX_C2_PA	)
+```
+
+```{r, include = F}
+# transformations
+df <- dff[-c(68, 359), ]
+
+log.chi <- df %>%
+  dplyr::select(contains("_CHI")) %>%
+  log()
+
+log.re <- df %>%
+  dplyr::select(contains("_RE")) %>%
+  log()
+
+df <- df %>%
+  dplyr::select(-contains(c("_CHI", "_RE")))
+
+df <- data.frame(df, log.chi, log.re)
+predictors <- dplyr::select(df, -response)
+response <- dplyr::select(df, response)
+```
