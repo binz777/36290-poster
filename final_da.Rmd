@@ -1,0 +1,578 @@
+---
+title: Predicting the Masses of Biggest Cluster Galaxies from their Optical Brightnesses
+  and Shapes
+author: "Bin Zheng"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list=ls())
+file.path = "https://raw.githubusercontent.com/pefreeman/36-290/master/PROJECT_DATASETS/SPIDERS_MASS/spiders_bcg_mass.Rdata"
+load(url(file.path))
+rm(file.path)
+objects()
+
+library(tidyverse)
+library(MASS)
+library(car)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(xgboost)
+library(FNN)
+library(corrplot)
+library(leaps)
+library(glmnet)
+```
+
+```{r, include = F}
+dff <- data.frame(predictors, response)
+
+dff <- rename(dff, g_modS_CHI2NU = GAL_sdss_g_modS_CHI2NU	,
+g_modS_C1_MAG	=	GAL_sdss_g_modS_C1_MAG	,
+g_modS_C1_RE	=	GAL_sdss_g_modS_C1_RE	,
+g_modS_C1_N	=	GAL_sdss_g_modS_C1_N	,
+g_modS_C1_AR	=	GAL_sdss_g_modS_C1_AR	,
+g_modS_C1_PA	=	GAL_sdss_g_modS_C1_PA	,
+r_modS_CHI2NU	=	GAL_sdss_r_modS_CHI2NU	,
+r_modS_C1_MAG	=	GAL_sdss_r_modS_C1_MAG	,
+r_modS_C1_RE	=	GAL_sdss_r_modS_C1_RE	,
+r_modS_C1_N	=	GAL_sdss_r_modS_C1_N	,
+r_modS_C1_AR	=	GAL_sdss_r_modS_C1_AR	,
+r_modS_C1_PA	=	GAL_sdss_r_modS_C1_PA	,
+i_modS_CHI2NU	=	GAL_sdss_i_modS_CHI2NU	,
+i_modS_C1_MAG	=	GAL_sdss_i_modS_C1_MAG	,
+i_modS_C1_RE	=	GAL_sdss_i_modS_C1_RE	,
+i_modS_C1_N	=	GAL_sdss_i_modS_C1_N	,
+i_modS_C1_AR	=	GAL_sdss_i_modS_C1_AR	,
+i_modS_C1_PA	=	GAL_sdss_i_modS_C1_PA	,
+g_modV_CHI2NU	=	GAL_sdss_g_modV_CHI2NU	,
+g_modV_C1_MAG	=	GAL_sdss_g_modV_C1_MAG	,
+g_modV_C1_RE	=	GAL_sdss_g_modV_C1_RE	,
+g_modV_C1_AR	=	GAL_sdss_g_modV_C1_AR	,
+g_modV_C1_PA	=	GAL_sdss_g_modV_C1_PA	,
+r_modV_CHI2NU	=	GAL_sdss_r_modV_CHI2NU	,
+r_modV_C1_MAG	=	GAL_sdss_r_modV_C1_MAG	,
+r_modV_C1_RE	=	GAL_sdss_r_modV_C1_RE	,
+r_modV_C1_AR	=	GAL_sdss_r_modV_C1_AR	,
+r_modV_C1_PA	=	GAL_sdss_r_modV_C1_PA	,
+i_modV_CHI2NU	=	GAL_sdss_i_modV_CHI2NU	,
+i_modV_C1_MAG	=	GAL_sdss_i_modV_C1_MAG	,
+i_modV_C1_RE	=	GAL_sdss_i_modV_C1_RE	,
+i_modV_C1_AR	=	GAL_sdss_i_modV_C1_AR	,
+i_modV_C1_PA	=	GAL_sdss_i_modV_C1_PA	,
+g_modSX_CHI2NU	=	GAL_sdss_g_modSX_CHI2NU	,
+g_modSX_C1_MAG	=	GAL_sdss_g_modSX_C1_MAG	,
+g_modSX_C1_RE	=	GAL_sdss_g_modSX_C1_RE	,
+g_modSX_C1_N	=	GAL_sdss_g_modSX_C1_N	,
+g_modSX_C1_AR	=	GAL_sdss_g_modSX_C1_AR	,
+g_modSX_C1_PA	=	GAL_sdss_g_modSX_C1_PA	,
+g_modSX_C2_MAG	=	GAL_sdss_g_modSX_C2_MAG	,
+g_modSX_C2_RE	=	GAL_sdss_g_modSX_C2_RE	,
+g_modSX_C2_AR	=	GAL_sdss_g_modSX_C2_AR	,
+g_modSX_C2_PA	=	GAL_sdss_g_modSX_C2_PA	,
+r_modSX_CHI2NU	=	GAL_sdss_r_modSX_CHI2NU	,
+r_modSX_C1_MAG	=	GAL_sdss_r_modSX_C1_MAG	,
+r_modSX_C1_RE	=	GAL_sdss_r_modSX_C1_RE	,
+r_modSX_C1_N	=	GAL_sdss_r_modSX_C1_N	,
+r_modSX_C1_AR	=	GAL_sdss_r_modSX_C1_AR	,
+r_modSX_C1_PA	=	GAL_sdss_r_modSX_C1_PA	,
+r_modSX_C2_MAG	=	GAL_sdss_r_modSX_C2_MAG	,
+r_modSX_C2_RE	=	GAL_sdss_r_modSX_C2_RE	,
+r_modSX_C2_AR	=	GAL_sdss_r_modSX_C2_AR	,
+r_modSX_C2_PA	=	GAL_sdss_r_modSX_C2_PA	,
+i_modSX_CHI2NU	=	GAL_sdss_i_modSX_CHI2NU	,
+i_modSX_C1_MAG	=	GAL_sdss_i_modSX_C1_MAG	,
+i_modSX_C1_RE	=	GAL_sdss_i_modSX_C1_RE	,
+i_modSX_C1_N	=	GAL_sdss_i_modSX_C1_N	,
+i_modSX_C1_AR	=	GAL_sdss_i_modSX_C1_AR	,
+i_modSX_C1_PA	=	GAL_sdss_i_modSX_C1_PA	,
+i_modSX_C2_MAG	=	GAL_sdss_i_modSX_C2_MAG	,
+i_modSX_C2_RE	=	GAL_sdss_i_modSX_C2_RE	,
+i_modSX_C2_AR	=	GAL_sdss_i_modSX_C2_AR	,
+i_modSX_C2_PA	=	GAL_sdss_i_modSX_C2_PA	)
+```
+
+```{r, echo = F}
+# subsets and transformations
+z1 <- which.min(dff$response)
+z2 <- which.max(dff$r_modSX_C2_MAG)
+
+df <- dff[-c(z1, z2), ]
+
+log.chi <- df %>%
+  dplyr::select(contains("_CHI")) %>%
+  log()
+
+log.re <- df %>%
+  dplyr::select(contains("_RE")) %>%
+  log()
+
+df <- df %>%
+  dplyr::select(-contains(c("_CHI", "_RE")))
+
+df <- data.frame(df, log.chi, log.re)
+predictors <- dplyr::select(df, -response)
+response <- dplyr::select(df, response)
+```
+
+## Introduction
+
+The Universe has a sponge-like structure. It contains voids (like holes in a sponge), filaments (like thin strands within a sponge), and clusters (where the filaments meet). Galaxies lie along filaments and within clusters. At the centers of clusters are large galaxies built up through galaxy mergers; these large galaxies are called the Biggest Cluster Galaxies (or BCGs).
+
+
+
+An important topic in astrophysics is to determine the properties of BCGs and how they affect their environments. Mass is one such property since the mass of an object is directly related to its ability to distort spacetime. However, we cannot exactly measure the mass of a BCG, and it can be computationally and observationally expensive to estimate masses using intensive physics codes or spectroscopic data. Thus, we wish to explore the brightness and shape data of 390 BCGs collected by the Spectroscopic Identification of eROSITA Sources (SPIDERS) program in the Sloan Digital Sky Survey (SDSS) to see if there is a direct relationship between comparatively easy to observe properties, such as galaxy brightness and shape, and the harder-to-estimate property, mass.
+
+
+
+## Data
+
+There are 66 predictors in our dataset. A short description of them is shown below:
+
+| Variable Name | Description |
+| ------------- | ----------- |
+| `CLUZSPEC` | Redshift of the BCG, an indicator of the distance between the BCG and Earth (clusters with larger redshifts are further away). |
+| `RA_BCG`, `DEC_BCG` | Celestial longitude and latitude of the BCG. |
+| `(g, r, i)_(modS, modV, modSX)_CHI2NU` | A metric that measures the quality of spectral-fit, the smaller the better. |
+| `(g, r, i)_(modS, modV, modSX)_C1_MAG` | Magnitude, or logarithmic brightness, of the BCG. Lower values mean brighter objects and a difference of 5 in magnitudes is a difference by a factor of 100 in brightness. |
+| `(g, r, i)_(modS, modV, modSX)_C1_RE` | Modeled radial extent (i.e., size) of a BCG |
+| `(g, r, i)_(modS, modSX)_C1_N` | The shape parameter of the best-fit shape model of BCG which modifies the shape of the radial profile |
+| `(g, r, i)_(modS, modV, modSX)_C1_AR` | Indicates how "round" the elliptical BCG projection is. 0 represents a line and 1 represents a circle. |
+| `(g, r, i)_(modS, modV, modSX)_C1_PA` | The rotation angle of the projected BCG. |
+| `(g, r, i)_modSX_C2_(MAG, RE, AR, PA)` | Similar to above, but for the second model component in a multi-component fit. |
+| `response` | The response is the log of the stellar mass of the BCG
+
+`g`, `r`, and `i` refer to the different wavelength bands, which roughly translates to green light, red light, and near-infrared light, respectively.  
+
+`modS`, `modSX`, and `modV`, refer to different models that parameterize how the light of the BCG is spatially distributed. 
+
+
+## Exploratory Data Analysis
+
+
+### Univariate EDA
+
+
+First we look at the distribution of redshift, celestial longitude/latitude, and the stellar mass of BCGs.
+```{r}
+df1 <- df[, c(1,2,3)]
+ggplot(data = tidyr::gather(df[, c(1,2,3,46)]), mapping = aes(x = value)) +
+  geom_histogram(bins = 30, fill = "royalblue") +
+  facet_wrap(~key, scales = "free_x")
+```
+
+The distribution of redshifts is mostly flat and slightly skewed to the right. There are three clusters in both of our angle predictors. And the estimated masses are centered around 11.5 and slightly skewed to the left. We note that we removed an observation with an estimated mass of 8.6. 
+
+
+As expected, the distributions the spectral-fit, radial-extent, shape parameter, and rotation angle variables across all combinations of bands and models are very similar. Therefore, we'll present a representative of each below: 
+
+```{r}
+df2 <- dplyr::select(df, c(i_modV_CHI2NU,g_modSX_C1_RE,g_modS_C1_N,g_modSX_C1_PA))
+ggplot(data = gather(df2), mapping = aes(x = value)) +
+  geom_histogram(bins = 30, fill = "royalblue") +
+  facet_wrap(~key, scales = "free")
+```
+
+The distributions of rotation angles seem to be either symmetric or uniform. The distributions of the shape parameter are skewed right. The log of the radial extents variables are rather symmetric. And the log of the spectral-fits are still skewed right.
+
+
+For the `AR` variables, the distributions are mostly skewed left for C1 and the C2 ones are more uniform. In addition, the distributions of magnitude are also very similar, except for `r_modSX_C2_MAG` due to the outlier at 80.7686 (which we have removed). 
+
+```{r}
+df3 <- dplyr::select(df, g_modSX_C1_MAG, g_modSX_C1_AR, i_modSX_C2_AR)
+ggplot(data = gather(dplyr::select(df, c(r_modSX_C2_MAG, g_modSX_C1_AR, i_modSX_C2_AR))), mapping = aes(x = value)) +
+  geom_histogram(bins = 30, fill = "royalblue") +
+  facet_wrap(~key, scales = "free")
+```
+
+
+
+### Bivariate EDA
+
+#### Correlation Matrix
+
+```{r}
+df5 <- cbind(response = response, df1, df2, df3)
+cor(df5) %>% corrplot(method = "ellipse")
+```
+
+The correlation matrix above contains the predictors that have the highest correlation coefficient in magnitude with the response within their type (e.g., `g_modS_C1_N` has the highest correlation coefficient with the response among all shape parameters predictors). The response correlates the most with `CLUZSPEC` (r = .31) and secondly with `g_modSX_C1_MAG` (r = .25). It is also worth noting that these two predictors are highly correlated between themselves (r = .88). This suggests that `CLUZSPEC` and `g_modSX_C1_MAG` may be useful in modeling BCG masses, but also raises concerns for multicollinearity in linear regression analysis. 
+
+#### Pairs Plot
+
+```{r}
+correlation <- cor(response, cbind(df1, df2, df3))
+df6 <- data.frame(predictor = colnames(correlation), r = correlation[1,])
+df6 <- arrange(df6, desc(abs(r)))
+df6 <- dplyr::select(df, one_of(c(df6$predictor[1:4], "response")))
+pairs(df6, col = alpha("royalblue", .5), pch = 16)
+```
+
+The pairs plot includes the 4 predictors that correlate the most with the response in terms of the magnitude of the correlation coefficient. From the plot, there is no clear linear relationship between the response and any of the 4 predictors, though there seems to be a strong, positive, linear relationship between `CLUZSPEC` and `g_modSX_C1_MAG`, which makes sense since closer BCGs appears brighter. There are also three distinct clusters in the scatter plot between `DEC_BCG` and the response, which aligns with the observations we made about the histogram of `DEC_BCG`.
+
+### PCA
+
+The predictors within the same group (spectral-fit, radial-extent, magnitude, etc.) are highly correlated. We have a lot of repeated information and a lot of variables. Hence, we will perform PCA to see if reducing the dimensionality of our data helps. 
+
+
+```{r}
+pr.out = prcomp(predictors, scale. = TRUE)
+
+pr.var = pr.out$sdev^2
+pve = pr.var/sum(pr.var)
+pve = data.frame(pve, cumsum(pve))
+
+cumu = ggplot() + geom_point(aes(seq_along(pve$cumsum.pve), pve$cumsum.pve)) + geom_line(aes(seq_along(pve$cumsum.pve), pve$cumsum.pve)) +
+  xlab("# of PCS") + ylab("Total Variation captured") +
+  geom_abline(intercept = .95, slope = 0)
+
+cumu
+```
+
+From the cumulative variance plot, we need 32 principal components to explain 95% of the variance in the data, indicating that the data effectively lie on a ~32-dimensional hyperplane in the 66-dimensional space. This is an interesting observation, but doesn't offer much inferential insight. 
+
+
+## Initial Regression Analysis
+
+### Linear Models
+
+#### Linear Regression
+
+First, we will fit a general linear model and look at its adjusted $R^2$ and test-set mean-squared error (MSE).
+
+```{r}
+set.seed(12321)
+
+test.rows <- sample.int(388, 78)
+
+train.pred <- predictors[-test.rows,]
+test.pred <- predictors[test.rows,]
+train.resp <- response$response[-test.rows]
+test.resp <- response$response[test.rows]
+```
+
+```{r}
+lm.out = lm(train.resp~., data = train.pred)
+summary(lm.out)
+lm.pred = predict(lm.out, newdata = test.pred)
+lm.mse = round(mean((lm.pred-test.resp)^2), 4)
+lm.mse
+lm.r2 <-.3254
+```
+
+Our adjusted r-squared is .3254, meaning that 32.54% of the variance in the response can be explained by the linear model. This indicates that there is some linear relationship between the response and the predictors. The test-set MSE is .1535 and this will be the baseline for comparing models.
+
+#### Variable Selection
+
+##### Forward/Backward Stepwise Selection
+
+Since there are 66 predictors in the data, it is not computationally feasible to compute the best subset selection. Thus, we will perform stepwise selection to subset the predictors
+
+```{r}
+reg.fwd <- regsubsets(train.resp ~ ., data = train.pred, nvmax = 66, method = "forward")
+which(summary(reg.fwd)$adjr2 == max(summary(reg.fwd)$adjr2))
+
+reg.bwd <- regsubsets(train.resp ~ ., data = train.pred, nvmax = 66, method = "backward")
+which(summary(reg.bwd)$adjr2 == max(summary(reg.bwd)$adjr2))
+
+fwd.r2 <- round(max(summary(reg.fwd)$adjr2), 4)
+bwd.r2 <- round(max(summary(reg.bwd)$adjr2), 4)
+
+fwd.r2
+bwd.r2
+
+test_mat <- model.matrix(test.resp ~ ., data.frame(test.pred, test.resp))
+coefi = coef(reg.fwd, id = 33)
+pred = test_mat[,names(coefi)] %*% coefi
+fwd.mse = round(mean((test.resp-pred)^2), 4)
+fwd.mse
+
+test_mat <- model.matrix(test.resp ~ ., data.frame(test.pred, test.resp))
+coefi = coef(reg.bwd, id = 33)
+pred = test_mat[,names(coefi)] %*% coefi
+bwd.mse = round(mean((test.resp-pred)^2), 4)
+bwd.mse
+```
+
+Using stepwise regression, the model utilizing 33 predictors selected through the backward algorithm yields the highest adjusted $R^2$ at .3782, and the lowest test MSE at .1407, which is an improvement from the full linear model. 
+
+##### Ridge and Lasso Regression
+
+Alternative methods for subset selection include ridge and lasso regression, which are conducted as follows:
+
+```{r}
+test.pred.m <- model.matrix(test.resp ~ ., data.frame(test.pred, test.resp))[,-1]
+train.pred.m <- model.matrix(train.resp ~ ., data.frame(train.pred, train.resp))[,-1]
+```
+
+```{r}
+ridge.out <- glmnet(train.pred.m, train.resp, alpha = 0)
+
+set.seed(12321)
+cv.out = cv.glmnet(train.pred.m,train.resp,alpha=0)
+
+ridge.pred <- predict(ridge.out, s = cv.out$lambda.min, newx = test.pred.m)
+ridge.mse <- round(mean((ridge.pred - test.resp)^2), 4)
+ridge.mse
+
+ridge.r2 <- round(ridge.out$dev.ratio[which(ridge.out$lambda == cv.out$lambda.min)], 4)
+ridge.r2
+```
+
+```{r}
+lasso.out <- glmnet(train.pred.m, train.resp, alpha = 1)
+
+set.seed(12321)
+cv.out = cv.glmnet(train.pred.m, train.resp, alpha = 1)
+
+lasso.pred <- predict(lasso.out, s = cv.out$lambda.min, newx = test.pred.m)
+lasso.mse <- round(mean((lasso.pred - test.resp)^2), 4)
+lasso.mse
+
+lasso.r2 <- round(lasso.out$dev.ratio[which(lasso.out$lambda == cv.out$lambda.min)], 4)
+lasso.r2
+```
+
+The test MSE for lasso regression is .1154 which is the best so far. However, the $R^2$, .2432, is not very high. On the other hand, the $R^2$ and test MSE for ridge regression is almost right in the middle of lasso and backward stepwise regression ($R^2$ = .1285, test MSE = .2994).
+
+
+
+#### Multicollinearity
+
+As noted in the EDA, many of the predictors are variations of measuring the same properties. We'll deal with possible multicollinearity issues and re-fit the linear models as follows:
+
+```{r}
+THRESHOLD = 5
+pred.vif = predictors
+istop = 0
+while ( istop == 0 ) {
+  lm.vif.out = lm(response$response ~.,data = pred.vif)
+  v = vif(lm.vif.out)
+  if ( max(v) > THRESHOLD ) {
+    pred.vif = pred.vif[,-which.max(v)]
+  } else {
+    istop = 1
+  }
+}
+print(v)
+```
+
+```{r}
+test.pred.vif = pred.vif[test.rows,]
+train.pred.vif = pred.vif[-test.rows,]
+length(train.pred.vif)
+```
+
+```{r}
+summary(lm.vif.out)
+lm.pred = predict(lm.vif.out, newdata = test.pred.vif)
+lm.vif.mse = round(mean((lm.pred-test.resp)^2), 4)
+lm.vif.mse
+lm.vif.r2 <- .2034
+```
+
+```{r}
+reg.fwd.vif <- regsubsets(train.resp ~ ., data = train.pred.vif, nvmax = 41, method = "forward")
+which(summary(reg.fwd.vif)$adjr2 == max(summary(reg.fwd.vif)$adjr2))
+
+reg.bwd.vif <- regsubsets(train.resp ~ ., data = train.pred.vif, nvmax = 41, method = "backward")
+which(summary(reg.bwd.vif)$adjr2 == max(summary(reg.bwd.vif)$adjr2))
+
+fwd.vif.r2 <- round(max(summary(reg.fwd.vif)$adjr2), 4)
+bwd.vif.r2 <- round(max(summary(reg.bwd.vif)$adjr2), 4)
+
+fwd.vif.r2
+bwd.vif.r2
+
+test_mat <- model.matrix(test.resp ~ ., data.frame(test.pred.vif, test.resp))
+coefi = coef(reg.fwd.vif, id = 20)
+pred = test_mat[,names(coefi)] %*% coefi
+fwd.vif.mse = round(mean((test.resp-pred)^2), 4)
+fwd.vif.mse
+
+test_mat <- model.matrix(test.resp ~ ., data.frame(test.pred.vif, test.resp))
+coefi = coef(reg.bwd.vif, id = 20)
+pred = test_mat[,names(coefi)] %*% coefi
+bwd.vif.mse = round(mean((test.resp-pred)^2), 4)
+bwd.vif.mse
+```
+
+```{r}
+test.pred.vif.m <- model.matrix(test.resp ~ ., data.frame(test.pred.vif, test.resp))[,-1]
+train.pred.vif.m <- model.matrix(train.resp ~ ., data.frame(train.pred.vif, train.resp))[,-1]
+```
+
+```{r}
+ridge.out <- glmnet(train.pred.vif.m, train.resp, alpha = 0)
+
+set.seed(12321)
+cv.out = cv.glmnet(train.pred.vif.m,train.resp,alpha=0)
+
+ridge.pred <- predict(ridge.out, s = cv.out$lambda.min, newx = test.pred.vif.m)
+ridge.vif.mse <- round(mean((ridge.pred - test.resp)^2), 4)
+ridge.vif.mse
+
+ridge.vif.r2 <- round(ridge.out$dev.ratio[which(ridge.out$lambda == cv.out$lambda.min)], 4)
+ridge.vif.r2
+```
+
+```{r}
+lasso.out <- glmnet(train.pred.vif.m, train.resp, alpha = 1)
+
+set.seed(12321)
+cv.out = cv.glmnet(train.pred.vif.m, train.resp, alpha = 1)
+
+lasso.pred <- predict(lasso.out, s = cv.out$lambda.min, newx = test.pred.vif.m)
+lasso.vif.mse <- round(mean((lasso.pred - test.resp)^2), 4)
+lasso.vif.mse
+
+lasso.vif.r2 <- round(lasso.out$dev.ratio[which(lasso.out$lambda == cv.out$lambda.min)], 4)
+lasso.vif.r2
+```
+
+After resolving multicollinearity issues by removing 25 out of the 66 predictors, we summarize the linear models tried as follows:
+
+- Both test MSE and $R^2$ decreased post vif-reduction for all linear models. So depending on the metric used, the predictive ability of the models either increased (if test MSE) or decreased (if $R^2$).
+
+- The test MSE for linear regression improved greatly: from the highest to the lowest among all the linear models, both with the full data set and the vif-reduced data set (.1534 -> .0937).
+
+- Forward and backward stepwise selection returned the same model for the vif-reduced data set. In addition, the test MSE only decreased by a slight amount (backward: .1407 -> .1398) while the $R^2$ decreased quite a bit (backward: .3782 -> .2755)
+
+- The test MSE and $R^2$ for ridge and lasso regression only changed slightly after resolving multicolinearity (MSE, lasso: .1154 -> .1149; $R^2$, lasso: .2432 -> .2398).
+
+
+### Non-linear Models
+
+#### Regression Tree
+
+```{r}
+tree.mod <- rpart(train.resp ~ ., data = train.pred)
+tree.pred <- predict(tree.mod, newdata = test.pred)
+tree.mse <- round(mean((tree.pred - test.resp)^2), 4)
+tree.mse
+
+rpart.plot(tree.mod, type = 5)
+
+printcp(tree.mod)
+```
+
+The test MSE for the regression tree is .1288, which is not great.
+
+It's also worth noting that although the values of `xerror` and `xstd` indicates that pruning is necessary (all the way down to zero splits!), it's due to the small sample size, which leads to high `xstd`. This suggests that non-linear models may not have very good performance, since machine learning algorithms tend to be trained with large amounts of data. 
+
+
+#### Random Forest
+
+```{r}
+set.seed(12321)
+
+rf.mod <- randomForest(train.resp ~ ., data = data.frame(train.pred), importance = T)
+rf.mod
+rf.pred <- predict(rf.mod, newdata = test.pred)
+rf.mse <- round(mean((rf.pred - test.resp)^2), 4)
+rf.mse
+rf.r2 <- .1380
+
+imp <- data.frame(rf.mod$importance)
+imp %>%
+  mutate(predictors = row.names(.)) %>%
+  arrange(desc(X.IncMSE)) -> imp
+imp[1:15, c(3, 1, 2)] #chose top 15 for visibility
+```
+
+The $R^2$ for the random forest model is .1380 and the test-set MSE is .1028. From the variable importance table, the redshift of a BCG is the most important variable by far in predicting the mass of a BCG. This aligns with the results of the linear models (`CLUZSPEC` is the predictor with the lowest p-value in all linear models) and regression tree (`CLUZSPEC` is the variable used for the first split).
+
+#### Extreme Gradient Boosting
+
+```{r}
+trn <- xgb.DMatrix(data = as.matrix(train.pred), label = train.resp)
+tst <- xgb.DMatrix(data = as.matrix(test.pred), label = test.resp)
+
+set.seed(12321)
+out <- xgb.cv(data = trn, nfold = 5, nrounds = 30, params = list(objective="reg:squarederror"), verbose = 0)
+xgb.out <- xgboost(data = trn, nrounds = which.min(out$evaluation_log$test_rmse_mean), params=list(objective="reg:squarederror"), verbose = 0)
+xgb.pred <- predict(xgb.out, newdata = tst)
+xgb.mse <- round(mean((xgb.pred - test.resp)^2), 4)
+
+xgb.mse
+
+xgb.plot.importance(xgb.importance(model = xgb.out)[1:15,])
+```
+
+The test-set MSE for extreme gradient boosting is .1313. The most important variable used in this model is redshift as well. 
+
+
+
+### K Nearest Neighbors
+
+```{r, eval = FALSE}
+train.pred.scaled <- scale(train.pred)
+train.resp.scaled <- scale(train.resp)
+test.pred.scaled <- scale(test.pred)
+test.resp.scaled <- scale(test.resp)
+
+k.max <- 70
+mse.k <- rep(1.2, k.max)
+
+for(i in 3:k.max) # Out of bound error when i = 2
+{
+  mse.k[i] <- mean((knn.reg(train = train.pred.scaled, y = train.resp.scaled, k = i, algorithm = "brute")$pred - train.resp.scaled)^2)
+}
+
+k_opt <- which.min(mse.k)
+
+knn.out <- knn.reg(train = train.pred, test = test.pred, y = train.resp, k = k_opt, algorithm = "brute")
+knn.predictions <- knn.out$pred
+knn.mse <- round(mean((knn.predictions - test.resp)^2), 4)
+knn.mse
+
+```
+
+The test-set MSE for k-nearest neighbors is .1225 and the optimal number of neighbors is 25. 
+
+## Summary and Conclusion
+
+In the initial regression analysis, the outputs indicate that there is some linear relationship between the predictors (galaxy brightness and shape information) and the response (mass), though $R^2$ is rather low even after subsetting the predictors and addressing multicollinearity. The machine learning models did not perform well compared to the linear models. Surprisingly, the linear regression model with the vif-reduced data set yielded the least test MSE as shown in the following table. In that sense, the linear regression model with vif-reduced predictors is our best model.  
+
+
+| Model | Test MSE | $R^2$ |
+| ------------- | ----------- | ---------- |
+| Linear Regression | .1535 | .3254 |
+| Forward Stepwise Regression | .1467 | .3748 |
+| Backward Stepwise Regression | .1407 | .3782 |
+| Ridge Regression | .1285 | .2994 |
+| Lasso Regression | .1154 | .2432 |
+| Linear Regression (vif-reduced) | .0937 | .2034 |
+| Forward Stepwise Regression (vif-reduced) | .1398 | .2755 |
+| Backward Stepwise Regression (vif-reduced) | .1398 | .2755 |
+| Ridge Regression (vif-reduced) | .1269 | .2701 |
+| Lasso Regression (vif-reduced) | .1149 | .2398 |
+| Regression Tree | .1288 | NA |
+| Random Forest | .1028 | .1380 |
+| Extreme Gradient Boosting | .1313 | NA |
+| K-Nearest Neighbors | .1225 | NA |
+
+However, as shown in the residual plot below, even our best model doesn't do a very good job in estimating BCG mass. 
+
+```{r}
+ggplot(data = data.frame(lm.pred, test.resp)) +
+  geom_point(aes(x = test.resp, y = lm.pred), color = "royalblue") +
+  geom_abline(slope = 1, intercept = 0) +
+  xlim(c(10.5, 12.5)) +
+  ylim(c(10.5, 12.5))
+
+```
+
+As a backup model, we suggest either the backward stepwise regression model with the full predictor space (highest $R^2$) or the random forest model (second-lowest test MSE). 
+
+It may be of interest to collect more observations in the future since the nonlinear models we tried does not work very well with small datasets. Looking into other easy-to-observe properties of BCGs and see if they would estimate BCG mass more effectively may also be beneficial. 
