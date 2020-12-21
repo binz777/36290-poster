@@ -1,0 +1,446 @@
+---
+title: "Predicting the Masses of Biggest Cluster Galaxies from their Optical Brightnesses and Shapes"
+date: "Fall 2020"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    
+---
+
+Name: Megha Raavicharla
+
+Andrew ID: mraavich
+
+---
+
+# Introduction
+
+Ever since the Big Bang 13.8 billion years ago, the universe has been changing. It started as matter in a close-to-uniform fog of hot gas composed of hydrogen and helium, and has transitioned to matter largely locked in the stars and gas of galaxies. The universe is not arranged in a uniform fashion; there are voids in the universe with little to no galaxies connected by filaments that meet at an area of enhanced density known as a cluster. These clusters are the largest gravitationally bound structures in the Universe. The galaxies in a cluster orbit their center of mass, and over time they can merge. One outcome of all this merging is the formation of a BCG, or biggest cluster galaxy, at the center of the cluster. BCGs and how they affect their environments are topics that is studied greatly in astrophysics. One specific property of BCGs that astrophysicists wish to estimate is stellar mass, as more massive objects distort spacetime more and will have a larger affect on their environments. 
+
+Clusters can be detected by roughly four means, and this analysis will focus on clusters initially detected through one of these means: detecting the hot gas of clusters via X-ray observations. Although these observations alone do not provide information on BCGs, coupling them with followup observations of the cluster in the optical and infrared domains would provide ample information. One program for that does this followup is called Spectroscopic Identification of eROSITA Sources (or SPIDERS for short). Moreover, SPIDERS analyzed properties of cluster galaxies as observed by the Sloan Digital Sky Survey, and estimated masses of BCGs using high-resolution spectra. The data collected from SPIDERS, which include brightness and shape information of 390 BCGs, will be used for the analysis. I will try to determine if it is possible to use these properties alone (without the high-resolution spectra like SPIDERS did) to estimate masses of BCGs.
+
+In this project, I will attempt to discover the relationship between the brightness and shapes of BCGs in three optical bands and the BCG stellar mass. 
+
+# Data
+
+```{r}
+rm(list=ls())
+file.path = "https://raw.githubusercontent.com/pefreeman/36-290/master/PROJECT_DATASETS/SPIDERS_MASS/spiders_bcg_mass.Rdata"
+load(url(file.path))
+rm(file.path)
+objects()
+```
+
+
+The data from SPIDERS includes measurements of the brightness and shape for 390 BCGs. There are 66 predictor variables, the following table describes each measurement. The 3rd-8th rows are for 9 separate combinations of wavelength band and model, described by GAL_sdss_(g,r,i)__(modS,modV,modSX), and the last row can be represented by GAL_sdss_(g,r,i)__modSX. Descriptions of the combinations and acronym descriptions can be seen below, as well as a table with variable descriptions. 
+
+1) SDSS: observation of the BCG was done by the Sloan Digital Sky Survey
+2) g,r,i: the g (0.475 micron), r (0.622 micron), and i (0.763 micron) bands
+3) modS,modV,modSX: indicate the model used
+4) MAG: magnitude, or logarithmic brightness, of the BCG; lower values mean brighter objects
+5) N: the parameter which modifies the shape of the radial profile
+6) AR: axis-ratio, is the ratio of the length of the semi-minor axis of the measured ellipse to the semi-major axis (between 0 and 1)
+7) PA: position angle, is a measure of that arbitrary rotation. The value must be (between 0 and 180 degrees)
+
+
+```{r, echo=FALSE}
+variable.descriptions <- data.frame("Variable Name" = c("CLUZSPEC", "RA_BCG,DEC_BCG", "CHI2NU", "C1_MAG", "C1_RE", "C1_N", "C1_AR", "C1_PA", "C2_(MAG,RE,AR,PA)"), "Description" = c("Redshift of cluster", "Celestial longitude/latitude", "Quality of spectral-fit metric", "Model magnitude", "Modeled radial extent", "Best-fit shape model parameter", "Best-fit axis ratio parameter ", "Best-fit position angle parameter", "Second model component (multi-component fit)"))
+```
+
+```{r, echo=FALSE}
+library(kableExtra)
+variable.descriptions %>%
+  kbl() %>%
+  kable_styling()
+```
+
+
+# EDA
+
+```{r}
+library(GGally)
+#Same band, different models
+#GAL_sdss_r_(modS,modV,modSX)_C1_MAG
+ggpairs(data.frame(predictors$GAL_sdss_r_modS_C1_MAG, predictors$GAL_sdss_r_modV_C1_MAG, predictors$GAL_sdss_r_modSX_C1_MAG))
+```
+
+When measuring model magnitude, the above pair plot demonstrates predictors with the same band, specifically the r-band, but different models are strongly correlated.  This pattern can be observed with predictors in other bands and predictors with different bands but the same model.  We will therefore focus on one band, the r band, and one model, modS, when looking for correlations between predictors. 
+
+```{r}
+#GAL_sdss_r_modS_{CHI2NU, MAG, RE, N, AR, PA}
+ggpairs(data.frame(predictors$GAL_sdss_r_modS_CHI2NU, predictors$GAL_sdss_r_modS_C1_MAG, predictors$GAL_sdss_r_modS_C1_RE, predictors$GAL_sdss_r_modS_C1_N, predictors$GAL_sdss_r_modS_C1_AR, predictors$GAL_sdss_r_modS_C1_PA))
+```
+
+The plots demonstrate that given the same band and model, there is little to no correlation between the variables. 
+
+```{r}
+library("gridExtra")
+par(mfrow=c(1,2))
+#CHI2NU
+chi2nu <- hist(predictors$GAL_sdss_r_modS_CHI2NU, cex.lab = 0.75, cex.main=0.75, main="predictors$GAL_sdss_r_modS_CHI2N")
+chi2nu_log <- hist(log(predictors$GAL_sdss_r_modS_CHI2NU), cex.lab = 0.75, cex.main=0.75,  main="log(predictors$GAL_sdss_r_modS_CHI2N)")
+#RE
+re <- hist(predictors$GAL_sdss_r_modV_C1_RE, cex.lab = 0.75, cex.main=0.75, main="predictors$GAL_sdss_r_modS_C1_RE")
+re_log <-hist(log(predictors$GAL_sdss_r_modV_C1_RE), cex.lab = 0.75, cex.main=0.75, main="log(predictors$GAL_sdss_r_modS_C1_RE)")
+#PA
+par(mfrow=c(1,1))
+hist(predictors$GAL_sdss_r_modS_C1_PA, cex.lab = 0.75, cex.main=0.75, main="predictors$GAL_sdss_r_modS_C1_PA)")
+#RESPONSE - mass
+hist(response)
+```
+
+The CHI2NU and the RE variables were severely right skewed, and the PA variable was uniformly distributed(not normally distributed). All the other predictor variables only had slight skews or were normally distributed. The response variable was skewed to the left, even with the present logarithmic transformation. 
+
+
+```{r, echo=FALSE}
+#transforming CHI2NU and RE predictors
+predictors$GAL_sdss_g_modS_CHI2NU <- log(predictors$GAL_sdss_g_modS_CHI2NU)
+predictors$GAL_sdss_r_modS_CHI2NU <- log(predictors$GAL_sdss_r_modS_CHI2NU)
+predictors$GAL_sdss_i_modS_CHI2NU <- log(predictors$GAL_sdss_i_modS_CHI2NU)
+predictors$GAL_sdss_g_modS_C1_RE <- log(predictors$GAL_sdss_g_modS_C1_RE)
+predictors$GAL_sdss_r_modS_C1_RE <- log(predictors$GAL_sdss_r_modS_C1_RE)
+predictors$GAL_sdss_i_modS_C1_RE <- log(predictors$GAL_sdss_i_modS_C1_RE)
+
+predictors$GAL_sdss_g_modV_CHI2NU <- log(predictors$GAL_sdss_g_modV_CHI2NU)
+predictors$GAL_sdss_r_modV_CHI2NU <- log(predictors$GAL_sdss_r_modV_CHI2NU)
+predictors$GAL_sdss_i_modV_CHI2NU <- log(predictors$GAL_sdss_i_modV_CHI2NU)
+predictors$GAL_sdss_g_modV_C1_RE <- log(predictors$GAL_sdss_g_modV_C1_RE)
+predictors$GAL_sdss_r_modV_C1_RE <- log(predictors$GAL_sdss_r_modV_C1_RE)
+predictors$GAL_sdss_i_modV_C1_RE <- log(predictors$GAL_sdss_i_modV_C1_RE)
+
+predictors$GAL_sdss_g_modSX_CHI2NU <- log(predictors$GAL_sdss_g_modSX_CHI2NU)
+predictors$GAL_sdss_r_modSX_CHI2NU <- log(predictors$GAL_sdss_r_modSX_CHI2NU)
+predictors$GAL_sdss_i_modSX_CHI2NU <- log(predictors$GAL_sdss_i_modSX_CHI2NU)
+predictors$GAL_sdss_g_modSX_C1_RE <- log(predictors$GAL_sdss_g_modSX_C1_RE)
+predictors$GAL_sdss_r_modSX_C1_RE <- log(predictors$GAL_sdss_r_modSX_C1_RE)
+predictors$GAL_sdss_i_modSX_C1_RE <- log(predictors$GAL_sdss_i_modSX_C1_RE)
+
+```
+
+
+```{r}
+plot(predictors$GAL_sdss_r_modS_CHI2NU, response)
+plot(predictors$GAL_sdss_r_modS_C1_MAG, response)
+plot(predictors$GAL_sdss_r_modS_C1_N, response)
+plot(predictors$GAL_sdss_r_modS_C1_AR, response)
+plot(predictors$GAL_sdss_r_modS_C1_PA, response)
+plot(predictors$GAL_sdss_r_modS_C1_RE, response)
+```
+
+There is no clear correlation between the predictors, transformed based on our univariate analysis, and the response.  
+
+Because there are many predictors that are very correlated, we should use a method of subset selection as it may tell us that the effective dimensionality of the data is somewhat less than the total number of predictors. We can start by applying PCA and observing a plot of variance explained with each principal component.
+
+```{r}
+library(tidyverse)
+pr.out = prcomp(predictors, scale=TRUE)
+
+pr.var = data.frame(varExp = pr.out$sdev^2)
+pve= pr.var/sum(pr.var$varExp)
+pr.var = pr.var %>% mutate(pve = varExp / sum(varExp))
+
+pve.df <- data.frame("PC" = 1:66, "pve" = pr.var$pve)
+
+ggplot(pve.df, mapping=aes(x=PC, y=pve)) +
+  geom_point() +
+  theme(text = element_text(size=7),
+        axis.text.x = element_text(angle=90)) +
+  xlab("Principal Component ") +
+  ylab("Proportion of Variance Explained")
+```
+
+The first 9 principal components have the highest cumulative proportion of variance explained  by the plot produced. However, to explain 90 or 95% of the cumulative variance, many more PCs would be needed (closer to 35 PCs). This indicates that the data lie within a lower-dimensional subspace with high dimensionality, which prevents useful inference. 
+
+# Regression Analysis
+
+There are 390 galaxy observations in the data set. 78 of them (20%) will be used as a testing set to evaluate the models on, while the remaining 312 will be used as the training set to fit the models. 
+
+```{r}
+set.seed(101)
+test.indices = sample(390, 78)
+pred.test = predictors[test.indices,]
+pred.train = predictors[-test.indices,]
+resp.test = response[test.indices]
+resp.train = response[-test.indices]
+```
+
+
+Fitting several regression models to the data, and comparing them mean squared errors on a test set, will help determine which model gives the best predictions. 
+
+```{r}
+library(glmnet)
+# LINEAR REGRESSION
+lm.mass = lm(resp.train ~ .,data=pred.train)
+summary(lm.mass)
+
+#linear regression residual plot
+lm.resid = resid(lm.mass)
+plot(lm.resid[0:350], ylab = "Residuals", xlab= "Mass") + abline(0, 0)
+
+#MSE for linear regression
+lm.mass.predict = predict(lm.mass, newdata = pred.test)
+MSE_lin = mean((resp.test - lm.mass.predict) ^ 2,na.rm = TRUE)
+
+```
+
+The linear model produced an adjusted R-squared value of 0.270, which suggests that, although the model does not predict the data extremely well, it can still be useful to explain some of the data (~27% of the variance in the stellar mass can be explained by the predictors). 
+
+Observing multicollinearity is important to help produce a better model. 
+
+```{r}
+library(car)
+#MULTICOLLINEARITY
+THRESHOLD = 10
+pred.vif = predictors
+istop = 0
+while ( istop == 0 ) {
+  lm.out.update = lm(response~.,data=pred.vif)
+  v = vif(lm.out.update)
+  if ( max(v) > THRESHOLD ) {
+    pred.vif = pred.vif[,-which.max(v)]
+  } 
+  else {
+    istop = 1
+  }
+}
+print(v)
+```
+
+After removing collinear variables, we are left with 48 variables for further analysis
+
+
+```{r}
+#creating data frames based on multicollinearity test 
+pred.vif.test = pred.vif[test.indices,]
+pred.vif.train = pred.vif[-test.indices,]
+resp.vif.test = response[test.indices]
+resp.vif.train = response[-test.indices]
+
+lm.mass.update = lm(resp.vif.train ~ ., data=pred.vif.train)
+summary(lm.mass.update)
+
+#linear regression residual plot
+lm.resid_update= resid(lm.mass.update)
+plot(lm.resid_update[0:350], ylab = "Residuals", xlab= "Mass") + abline(0, 0)
+
+#MSE for linear regression
+lm.mass.predict1 = predict(lm.mass.update, newdata = pred.vif.test)
+MSE_lin_update = mean((resp.vif.test - lm.mass.predict1) ^ 2,na.rm = TRUE)
+
+```
+
+The linear model, after accounting for multicollinearity, produced an adjusted R-squared value of 0.185, which suggests that, although the model does not predict the data extremely well, it can still be useful to explain some of the data.  
+
+Ridge and Lasso regression will be performed on the original predictor set and the predictor set with collinear variables removed, and their test-set MSE's will be saved. 
+
+```{r}
+#RIDGE REGRESSION
+#Data Frames as Matrices
+model.train = model.matrix(resp.train~., pred.train)[,-1]
+model.test  = model.matrix(resp.test~.,pred.test)[,-1]
+
+#Ridge regression on the training data
+ridge.mod.train = glmnet(model.train,resp.train,alpha=0)
+
+#determining the best value for lambda
+set.seed (101)
+cv.out = cv.glmnet(model.train,resp.train,alpha=0)
+bestlam=cv.out$lambda.min
+
+#compute test-set MSE
+ridge.pred = predict(ridge.mod.train,s=bestlam,newx=model.test)
+MSE_ridge = mean((ridge.pred-resp.test)^2)
+
+#RIDGE REGRESSION - accounting for collinear variables
+#Data Frames as Matrices
+model.train.update = model.matrix(resp.vif.train ~ ., data=pred.vif.train)[,-1]
+model.test.update  = model.matrix(resp.vif.test ~ .,  data=pred.vif.test)[,-1]
+
+#Ridge regression on the training data
+ridge.mod.train.update = glmnet(model.train.update,resp.vif.train,alpha=0)
+
+#determining the best value for lambda
+set.seed (101)
+cv.out.update = cv.glmnet(model.train.update,resp.vif.train,alpha=0)
+bestlam.update=cv.out.update$lambda.min
+
+#compute test-set MSE
+ridge.pred.update = predict(ridge.mod.train.update,s=bestlam.update,newx=model.test.update)
+MSE_ridge_update = mean((ridge.pred.update-resp.vif.test)^2)
+```
+
+
+```{r}
+#LASSO REGRESSION
+#Lasso regression on the training data
+lasso.mod.train = glmnet(model.train,resp.train,alpha=1)
+
+#determining the best value for lambda
+set.seed (101)
+cv.out1 = cv.glmnet(model.train,resp.train,alpha=1)
+bestlam1=cv.out1$lambda.min
+
+#compute test-set MSE
+lasso.pred = predict(lasso.mod.train,s=bestlam1,newx=model.test)
+MSE_lasso = mean((lasso.pred-resp.test)^2)
+plot(lasso.mod.train, xvar="lambda") + abline(v=log(bestlam1))
+
+#LASSO REGRESSION - accounting for collinear variables
+#Lasso regression on the training data
+lasso.mod.train.update = glmnet(model.train.update,resp.vif.train,alpha=1)
+
+#determining the best value for lambda
+set.seed(101)
+cv.out1.update = cv.glmnet(model.train.update,resp.vif.train,alpha=1)
+bestlam1.update=cv.out1.update$lambda.min
+
+#compute test-set MSE
+lasso.pred.update = predict(lasso.mod.train.update,s=bestlam1.update,newx=model.test.update)
+MSE_lasso_update = mean((lasso.pred.update-resp.vif.test)^2)
+plot(lasso.mod.train.update, xvar="lambda") + abline(v=log(bestlam1.update))
+```
+
+Forward and Backward stepwise selection will be performed on the original predictor set and the predictor set with collinear variables removed. 
+
+```{r}
+library(olsrr)
+#STEPWISE SELECTION (FORWARD AND BACKWARD)
+forward_selection <- ols_step_forward_p(lm.mass)
+backward_selection <- ols_step_backward_p(lm.mass)
+
+forward_selection
+backward_selection
+
+#Forward MSE calculation
+forward.selection.pred = predict(forward_selection$model,newdata=pred.test)
+MSE_forward = mean((resp.test - forward.selection.pred) ^ 2,na.rm = TRUE)
+
+#Backward MSE calculation
+backward.selection.pred = predict(backward_selection$model,newdata=pred.test)
+MSE_backward= mean((resp.test - backward.selection.pred) ^ 2,na.rm = TRUE)
+```
+
+The Forward Step Selection method gives 29 predictor variables, while the Backwards one gives 35 predictor variables for the original dataset. Many of the predictors are different, as can be observed in the outputs. 
+
+```{r}
+#STEPWISE SELECTION (FORWARD AND BACKWARD) - updated based on collinear variables
+forward_selection_update <- ols_step_forward_p(lm.mass.update)
+backward_selection_update <- ols_step_backward_p(lm.mass.update)
+forward_selection_update
+backward_selection_update
+
+#Forward MSE calculation
+forward.selection.pred.update = predict(forward_selection_update$model,newdata=pred.vif.test)
+MSE_forward_update = mean((resp.vif.test - forward.selection.pred.update) ^ 2,na.rm = TRUE)
+
+#Backward MSE calculation
+backward.selection.pred.update = predict(backward_selection_update$model,newdata=pred.vif.test)
+MSE_backward_update= mean((resp.vif.test - backward.selection.pred.update) ^ 2,na.rm = TRUE)
+
+```
+
+The Forward Step Selection method gives 18 predictor variables, while the Backwards one gives 31 predictor variables for the data without the collinear variables. Many of the predictors are different, as can be observed in the outputs. 
+
+
+Observing statistical learning that focus on prediction could generate better models. 
+
+```{r}
+library(rpart)
+library(rpart.plot)
+#DECISION TREES
+tree.resp = rpart(resp.train~., pred.train)
+
+tree.predict = predict(tree.resp, newdata=pred.test)
+MSE_tree = mean((resp.test - tree.predict) ^ 2,na.rm = TRUE)
+
+rpart.plot(tree.resp)
+```
+
+From the tree, we can see that the most important predictor appears to be CLUZSPEC. At the end of the tree, there are 14 nodes. 
+
+```{r}
+library(randomForest)
+#RANDOM FOREST
+rf.out = randomForest(resp.train~.,data=pred.train, importance=TRUE)
+forest.pred = predict(rf.out,newdata=pred.test,type="response")
+MSE_forest = mean((resp.test - forest.pred) ^ 2,na.rm = TRUE)
+varImp <- data.frame(rf.out$importance)
+varImp <- varImp %>% mutate(predictors = row.names(.)) %>% arrange(desc(X.IncMSE))
+varImp[1:10, c(3, 1, 2)]
+```
+From the random forest, we can see that the most important predictor appears to be CLUZSPEC. 
+
+```{r}
+library(xgboost)
+library(ggplot2)
+#EXTREME GRADIENT BOOSTING
+#Create the train and test matrices 
+matrix.train = xgb.DMatrix(data=as.matrix(pred.train), label=resp.train)
+matrix.test = xgb.DMatrix(data=as.matrix(pred.test), label=resp.test)
+
+#Set seed and run function xgb.cv
+set.seed(101)
+xgb.out = xgb.cv(data = matrix.train, params=list(objective="reg:squarederror"), nfold = 5, nrounds=20, verbose=0)
+
+#determine optimal number of trees
+optimal_val = which.min(xgb.out$evaluation_log$test_rmse_mean)
+
+#run xgboost
+bst = xgboost(data = matrix.train,  params=list(objective="reg:squarederror"), nrounds = optimal_val, verbose=0)
+
+#computing test set MSE and plotting regression diagnostic plot
+xgb.pred = predict(bst, newdata = matrix.test)
+MSE_xgboost = mean((resp.test - xgb.pred) ^ 2,na.rm = TRUE)
+
+ggplot(pred.test, aes(x=xgb.pred, y=resp.test))+geom_point() + geom_abline() 
+```
+
+This plot suggests the extreme gradient boosting model was not extremely accurate at predicting mass, but a slight positive correlation can still be detected in the plot.
+
+
+```{r}
+library(FNN)
+#kNN
+#scale the train/test sets 
+pred.train.scaled <- scale(pred.train)
+pred.test.scaled <- scale(pred.test)
+#determine optimal value of k and MSE
+k.max = 50
+mse.k <- rep(NA,k.max) 
+for (i in 1:k.max){
+  knnreg = knn.reg(pred.train.scaled, y=resp.train, k = i, algorithm="brute")
+  knnmse = suppressWarnings(mean((resp.train - knnreg$pred)^2))
+  mse.k[i] = knnmse
+}
+optimal.mse = which.min(mse.k)
+
+#compare linear regression MSE to KKN MSE 
+MSE_KNN = mse.k[optimal.mse]
+```
+
+
+# Final Analysis and Conclusion
+
+```{r, echo=FALSE}
+MSE_df <- data.frame("Model" = c("Linear Regression", "Linear Regression (updated based on vif)", "Ridge Regression", "Ridge Regression (updated based on vif)", "Lasso Regression", "Lasso Regression (updated based on vif)", "Forward Stepwise Selection","Forward Stepwise Selection (updated based on vif)",  "Backward Stepwise Selection", "Backward Stepwise Selection (updated based on vif)", "Decision Tree", "Random Forest", "Extreme Gradient Boosting", "kNN"), "Test-set MSE" = c(MSE_lin, MSE_lin_update, MSE_ridge,MSE_ridge_update,  MSE_lasso, MSE_lasso_update, MSE_forward, MSE_forward_update, MSE_backward, MSE_backward_update, MSE_tree, MSE_forest, MSE_xgboost, MSE_KNN))
+
+MSE_df %>%
+  kbl() %>%
+  kable_styling()
+```
+
+All the models have relatively low Test-set MSE's, indicating that they would all be good at predicting BCG stellar mass from the predictor variables. The lasso regression created  had the lowest MSE, and we can further observe this model using a plot. 
+
+```{r}
+library(ggplot2)
+new.df <- data.frame(lasso.pred, resp.test)
+ggplot(data = new.df, aes(x=resp.test, y=lasso.pred)) + geom_point()+ geom_abline() + ylab("Predicted Mass") + xlab("Observed Mass") + xlim(10, 12.2) + ylim(10, 12.2)
+```
+
+
+This plot suggests the model with the lowest test-set MSE was not extremely accurate at predicting mass, but a slight positive correlation can still be detected in the plot. 
+
+Overall, we did achieve the goal of finding a relationship between the brightness and shapes of BCG in three optical bands and the BCG stellar mass. Based on the created plot for further observation of the model, it was not extremely accurate, but the Lasso Regression was able to create the best model. 
+
